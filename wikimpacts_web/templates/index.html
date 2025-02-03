@@ -1,0 +1,299 @@
+{% extends "layout.html" %}
+
+{% block content %}   
+
+
+
+    <style>
+
+        /* Custom styles for disclaimer */
+        .disclaimer-section {
+            background-color: #ffe6e6; /* Light red background */
+            padding: 10px; /* Reduced padding */
+            border: 1px solid #ff4d4d; /* Red border */
+            border-radius: 5px;
+            color: #cc0000; /* Darker red text */
+            font-size: 14px; /* Smaller font size */
+        }
+    
+        .disclaimer-section h4 {
+            color: #cc0000; /* Darker red for the header */
+            font-weight: bold;
+            font-size: 16px; /* Smaller header font size */
+        }
+    
+        .disclaimer-section i {
+            color: #ff4d4d; /* Red for the icon */
+            margin-right: 5px;
+            animation: blink 1s infinite; /* Add blink animation */
+        }
+    
+        /* Blink animation */
+        @keyframes blink {
+            0%, 50% {
+                opacity: 1; /* Fully visible */
+            }
+            51%, 100% {
+                opacity: 0; /* Hidden */
+            }
+        }
+        
+    
+    
+        /* Custom styles for carousel */
+        .carousel-item {
+            text-align: center;
+        }
+
+        .carousel-item .icon-box {
+            display: inline-block;
+            margin: 20px;
+        }
+
+        .carousel-item .icon-box i {
+            font-size: 100px; /* Large size for the icons */
+        }
+
+        .carousel-item .icon-box i.fa-users {
+            color: #007bff; /* Blue for Total Homelessness */
+        }
+
+        .carousel-item .icon-box i.fa-house-damage {
+            color: #dc3545; /* Red for Total Damage */
+        }
+
+        .carousel-item .icon-box i.fa-shield-alt {
+            color: #28a745; /* Green for Total Insured Damage */
+        }
+
+        .carousel-item .icon-box i.fa-building {
+            color: #ffc107; /* Yellow for Total Building Damage */
+        }
+
+        .carousel-item .icon-box i.fa-skull-crossbones {
+            color: #6c757d; /* Gray for Total Deaths */
+        }
+
+        .carousel-item .icon-box i.fa-user-injured {
+            color: #17a2b8; /* Teal for Total Injuries */
+        }
+
+        .carousel-item .icon-box i.fa-people-arrows {
+            color: #ff5733; /* Orange for Total Displacement */
+        }
+
+        .carousel-item .caption {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .carousel-item .image-container img {
+            width: 70%;
+            height: auto;
+            margin-top: 20px;
+        }
+
+        /* Styles for carousel controls */
+        .carousel-control-prev, .carousel-control-next {
+            width: 5%;
+        }
+
+        .carousel-control-prev-icon, .carousel-control-next-icon {
+            background-color: #000;
+            border-radius: 50%;
+            padding: 10px;
+        }
+    </style>
+
+
+
+</head>
+<body>
+
+    <div class="container mt-4">
+        <!-- Disclaimer Section at the beginning -->
+        <div class="disclaimer-section text-justified">
+            <h4><i class="fas fa-exclamation-triangle"></i> Data quality disclaimer</h4>
+            <p>
+                The Wikimpacts project is an ongoing initiative, and data is constantly being updated. The data is provided "as is" without guarantees of accuracy or completeness. Users should be aware that it may contain errors or omissions and interpret it cautiously. The project team assumes no responsibility for any risks or losses from the use of this data.
+            </p>
+        </div>
+    </div>
+
+
+
+    <div class="container">
+
+        <div class="main-content">
+            <h1>Welcome to the Wikimpacts project</h1>
+            <p>A database of climate impacts inferred from Wikipedia mining with generative AI</p>
+            <div class="buttons mt-4">
+                <a href="{% if session.get('user_id') %}{{ url_for('search') }}{% else %}{{ url_for('login') }}{% endif %}" 
+                   class="btn btn-primary"
+                   {% if not session.get('user_id') %}data-toggle="tooltip" title="Login to access"{% endif %}>
+                    Explore the Database
+                </a>
+                <a href="{% if session.get('user_id') %}{{ url_for('visualization') }}{% else %}{{ url_for('login') }}{% endif %}" 
+                   class="btn btn-primary"
+                   {% if not session.get('user_id') %}data-toggle="tooltip" title="Login to access"{% endif %}>
+                    Visualization Tool
+                </a>
+            </div>            
+                    
+                    
+                    
+            
+            
+        </div>
+
+        <!-- Explanatory section -->
+        <div class="explanatory-section mt-5">
+            <h2 class="text-center">More than 22,000 climate impacts records from 1900 to present</h2>
+
+            <hr class="my-4">
+            <p class="text-justified">
+                The Wikimpacts project aims to address the challenges posed by extreme weather events, such as floods, heatwaves, wildfires, and hurricanes, which increasingly impact societies and cause significant economic damage due to climate change. Current databases are limited by incomplete data and sampling biases.       
+            </p>
+            <p class="text-justified">
+                Wikimpacts overcomes these limitations as a new database developed with natural language processing and machine learning to mine data from Wikipedia and other online sources, capturing detailed information on extreme weather events, including their timing, location, and socioeconomic impacts.
+            </p>
+            <p class="text-justified">
+                The Wikimpacts database will <strong>enhance our understanding of the links between climate change and extreme weather</strong>, potentially providing unprecedented insights into the role of anthropogenic climate change in driving economic damages and loss of life globally.
+            </p>
+        </div>
+
+        <!-- Carousel Title and Explanatory Text -->
+        <div class="carousel-explanatory text-center mt-5">
+            <h2>Wikimpacts in numbers</h2>
+            <p>About 50% of climate impacts reported in the past XX years</p>
+        </div>
+
+        <!-- Carousel section -->
+        <div id="impactCarousel" class="carousel slide mt-4" data-ride="carousel">
+            <div class="carousel-inner">
+                <!-- Total Homelessness -->
+                <div class="carousel-item active">
+                    <div class="icon-box">
+                        <i class="fas fa-users"></i> <!-- Icon representing homelessness -->
+                        <p class="caption">Total Homelessness</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='homelessness_image.jpg') }}" alt="Homelessness impact image" class="img-fluid">
+                        <p class="caption">Total Homelessness</p>
+                    </div>
+                </div>
+                
+                <!-- Total Damage -->
+                <div class="carousel-item">
+                    <div class="icon-box">
+                        <i class="fas fa-house-damage"></i> <!-- Icon representing total damage -->
+                        <p class="caption">Total Damage</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='total_damage_image.jpg') }}" alt="Total damage impact image" class="img-fluid">
+                        <p class="caption">Total Damage</p>
+                    </div>
+                </div>
+        
+                <!-- Total Insured Damage -->
+                <div class="carousel-item">
+                    <div class="icon-box">
+                        <i class="fas fa-shield-alt"></i> <!-- Icon representing insured damage -->
+                        <p class="caption">Total Insured Damage</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='insured_damage_image.jpg') }}" alt="Insured damage impact image" class="img-fluid">
+                        <p class="caption">Total Insured Damage</p>
+                    </div>
+                </div>
+        
+                <!-- Total Building Damage -->
+                <div class="carousel-item">
+                    <div class="icon-box">
+                        <i class="fas fa-building"></i> <!-- Icon representing building damage -->
+                        <p class="caption">Total Building Damage</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='building_damage_image.jpg') }}" alt="Building damage impact image" class="img-fluid">
+                        <p class="caption">Total Building Damage</p>
+                    </div>
+                </div>
+
+                <!-- Total Deaths -->
+                <div class="carousel-item">
+                    <div class="icon-box">
+                        <i class="fas fa-skull-crossbones"></i> <!-- Icon representing total deaths -->
+                        <p class="caption">Total Deaths</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='total_deaths_image.jpg') }}" alt="Total deaths impact image" class="img-fluid">
+                        <p class="caption">Total Deaths</p>
+                    </div>
+                </div>
+
+                <!-- Total Injuries -->
+                <div class="carousel-item">
+                    <div class="icon-box">
+                        <i class="fas fa-user-injured"></i> <!-- Icon representing total injuries -->
+                        <p class="caption">Total Injuries</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='total_injuries_image.jpg') }}" alt="Total injuries impact image" class="img-fluid">
+                        <p class="caption">Total Injuries</p>
+                    </div>
+                </div>
+
+                <!-- Total Displacement -->
+                <div class="carousel-item">
+                    <div class="icon-box">
+                        <i class="fas fa-people-arrows"></i> <!-- Icon representing total displacement -->
+                        <p class="caption">Total Displacement</p>
+                    </div>
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename='total_displacement_image.jpg') }}" alt="Total displacement impact image" class="img-fluid">
+                        <p class="caption">Total Displacement</p>
+                    </div>
+                </div>
+
+            </div>
+            <!-- Controls -->
+            <a class="carousel-control-prev" href="#impactCarousel" role="button" data-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="sr-only">Previous</span>
+            </a>
+            <a class="carousel-control-next" href="#impactCarousel" role="button" data-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="sr-only">Next</span>
+            </a>
+        </div>
+
+        <!-- Image with descriptive text -->
+        <div class="row mt-5">
+            <!-- Text content with 40% width -->
+            <div class="col-md-4">
+                <h4 class="text-muted">Multi-scale focus</h4>
+                <h5>The Wikimpacts database accounts for climate impact records ranging from local and national to regional and global scales.</h5>
+                <ul>
+                    <li>Most impacted countries</li>
+                    <li>Number of fatalities</li>
+                    <li>Predominant climate impacts</li>
+                    <li>Trends and many more...</li>
+                </ul>
+            </div>
+        
+            <!-- Image content with 60% width -->
+            <div class="col-md-8">
+                <div class="img-container">
+                    <img src="{{ url_for('static', filename='event_countries.svg') }}" alt="Flood occurrence map" title="Flood Occurrence Map" class="img-fluid cropped-image">
+                </div>
+            </div>
+            
+        </div>
+
+
+       
+    </div>
+
+      
+{% endblock %}

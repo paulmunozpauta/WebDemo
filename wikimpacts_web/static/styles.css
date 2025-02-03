@@ -1,0 +1,141 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.container {
+    padding: 0; /* Remove padding to make it full width */
+    width: 100%; /* Full width of the page */
+    max-width: none; /* No maximum width limit */
+}
+
+/* Flex container for logos and navigation */
+.logo-nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 20px;
+}
+
+.left-logo img {
+    height: 100px; /* Adjust this value for the desired size of the left logo */
+}
+
+.navigation-links {
+    display: flex;
+    gap: 20px; /* Space between navigation links */
+}
+
+.nav-link {
+    font-size: 16px;
+    color: #333;
+    text-decoration: none;
+    padding: 10px;
+    transition: color 0.3s;
+}
+
+.nav-link:hover {
+    color: #007bff;
+}
+
+/* Right logos styling */
+.right-logos {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between right logos */
+}
+
+.right-logos img {
+    height: 50px; /* Smaller size for the right logos */
+}
+
+.main-content {
+    background-color: #f8f9fa;
+    text-align: center;
+    padding: 40px;
+}
+
+.main-content h1 {
+    font-size: 48px;
+}
+
+.main-content p {
+    font-size: 18px;
+}
+
+.buttons {
+    margin-top: 30px;
+}
+
+.buttons .btn {
+    padding: 15px 30px;
+    margin: 15px;
+    text-decoration: none;
+    color: white;
+    border-radius: 5px;
+    font-size: 18px;
+}
+
+.btn-primary {
+    background-color: #007bff;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}
+.links {
+    margin-top: 40px;
+    text-align: center;
+}
+
+.links ul {
+    list-style: none;
+    padding: 0;
+}
+
+.links li {
+    margin: 10px 0;
+}
+
+.links a {
+    text-decoration: none;
+    color: #007bff;
+    font-size: 18px;
+}
+
+.links a:hover {
+    text-decoration: underline;
+}
+
+.background-image {
+    width: 25%;
+    height: auto;
+    margin-top: 20px;
+}
+
+.img-container {
+    position: relative;
+    overflow: hidden; /* Ensures the cropped area is hidden */
+    width: 100%; /* Adjust as needed */
+    height: 90%; /* Adjust the height to crop the top 10% */
+}
+
+.cropped-image {
+    object-fit: cover; /* Ensures the image covers the entire container */
+    object-position: 0 -10%; /* Crops the top 10% of the image */
+    width: 100%; /* Ensures the image fills the container's width */
+    height: auto; /* Keeps the aspect ratio intact */
+    position: relative; /* Ensures the image stays within the container */
+    top: -10%; /* Moves the image up to crop the top 10% */
+}
+.main-content {
+    position: relative; /* Allows positioning of any child elements */
+    background-image: url("{{ url_for('static', filename='worldmap.jpg') }}"); /* Correct image path */
+    background-size: cover; /* Ensures the image covers the entire container */
+    background-position: center; /* Centers the image */
+    padding: 40px;
+    color: #000; /* Ensure text color is suitable for the background */
+}

@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block content %}   
+
+        <!-- Publications Content -->
+        <div class="publications-section mt-5">
+            <h1>Publications</h1>
+
+            <!-- Scientific Publications Section -->
+            <div class="scientific-publications mt-4">
+                <h2>Scientific Publications</h2>
+                <ul class="list-group">
+                    <!-- Example publication with external link -->
+                    <li class="list-group-item">
+                        <strong><a href="https://example.com/study1" target="_blank">Lastname, Firstname. (2024a). "Title goes here".</a></strong>
+                        <p>Short explanation of the study.</p>
+                    </li>
+                    <li class="list-group-item">
+                        <strong><a href="https://example.com/study2" target="_blank">Lastname, Firstname. (2024b). "Title goes here".</a></strong>
+                        <p>Short explanation of the study.</p>
+                    </li>
+                    <!-- Add more scientific publications as needed -->
+                </ul>
+            </div>
+
+
+            <!-- Outreach and Social Media Section -->
+            <div class="outreach-publications mt-5">
+                <h2>Outreach and Social Media</h2>
+                <ul class="list-group">
+                    <!-- Example outreach activity with expandable content -->
+                    <li class="list-group-item">
+                        <strong>Post 1: "Title goes here............................................................................."</strong>
+                        <p>Published on ... <span class="more-text" style="display: none;">Expanded text goes here+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</span></p>
+                        <button class="btn btn-outline-primary btn-sm read-more-btn">Read more</button>
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Post 2: "Title goes here............................................................................."</strong>
+                        <p>Published on ... <span class="more-text" style="display: none;">Expanded text goes here+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</span></p>
+                        <button class="btn btn-outline-primary btn-sm read-more-btn">Read more</button>
+                    </li>
+                    <!-- Add more outreach and social media items as needed -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

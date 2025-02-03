@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualization - Wikimpacts</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Include Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom styles for navigation and logos */
+        .logo-nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navigation-links {
+            margin-top: 10px; /* Space above navigation links */
+        }
+
+        .nav-link {
+            color: black !important; /* Make navigation font color black */
+            font-weight: bold; /* Bold font for navigation links */
+            font-size: 18px; /* Increase font size for navigation links */
+            text-decoration: none; /* Remove default underline */
+            padding: 5px 10px; /* Add some padding for better spacing */
+        }
+
+        .nav-link:hover, .nav-link.active {
+            text-decoration: underline; /* Underline on hover or when active */
+        }
+
+        .right-logos img {
+            margin-left: 10px; /* Spacing between logos */
+            height: 50px; /* Uniform height for logos */
+        }
+
+        /* Styling for active link */
+        .active {
+            text-decoration: underline !important;
+        }
+
+        /* Login button styles */
+        .login-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        .btn-login {
+            color: white;
+            background-color: #007bff;
+            border: none;
+            padding: 5px 10px;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+
+        .btn-login:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Flex container for logos -->
+        <div class="logo-nav-container d-flex justify-content-between align-items-center mb-2">
+            <!-- Left logo with link -->
+            <div class="left-logo">
+                <a href="{{ url_for('home') }}"> <!-- Wrap the image in an anchor tag -->
+                    <img src="{{ url_for('static', filename='background_image.jpg') }}" alt="Left Logo" class="logo-large">
+                </a>
+            </div>
+
+            <!-- Logos on the right -->
+            <div class="right-logos d-flex">
+                <img src="{{ url_for('static', filename='logo_HYDR.jpg') }}" alt="Logo 1" class="logo-small" style="width: 220px; height: auto;">
+                <img src="{{ url_for('static', filename='rise-logo-black.svg') }}" alt="Logo 2" class="logo-small" style="width: 40px; height: auto;">               
+                <img src="{{ url_for('static', filename='UFZ_Logo_RGB_DE.svg') }}" alt="Logo 3" class="logo-small" style="width: 220px; height: auto;"> 
+                <img src="{{ url_for('static', filename='Uppsala_logo.svg') }}" alt="Logo 4" class="logo-large" style="width: 80px; height: auto;">     
+                <img src="{{ url_for('static', filename='logo_Eutopia.png') }}" alt="Logo 5" class="logo-small" style="width: 200px; height: auto;">   
+            </div>
+        </div> 
+
+        <!-- Navigation links below logos -->
+        <div class="navigation-links d-flex justify-content-center mb-4">
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
+            <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}">About</a>
+            <a href="/news" class="nav-link {% if request.path == '/news' %}active{% endif %}">News</a>
+            <a href="/publications" class="nav-link {% if request.path == '/publications' %}active{% endif %}">Publications</a>
+            <a href="/contact" class="nav-link {% if request.path == '/contact' %}active{% endif %}">Contact</a>
+        </div>
+
+        <!-- Login Button -->
+        <div class="login-container">
+            {% if session.get('user_id') %}
+                <a href="{{ url_for('logout') }}" class="btn btn-login">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-login">Login</a>
+            {% endif %}
+        </div>
+
+        <!-- Main Content Block -->
+        <div class="container">
+            {% block content %}
+            {% endblock %}
+        </div>
+
+        <!-- Footer Section -->
+        <footer class="footer mt-5 py-4 bg-light">
+            <div class="container">
+                <div class="row">
+                    <!-- Footer Logo and Description -->
+                    <div class="col-md-5 text-center">
+                        <img src="{{ url_for('static', filename='background_image.jpg') }}" alt="Footer Logo" class="img-fluid mb-3" style="width: 10%;">
+                        <p class="text-justified"> Wikimpacts is maintained by the Department of Water and Climate at the Vrije Universiteit Brussel, Belgium.</p>
+                    </div>
+                            
+                    <!-- Social Media and Newsletter -->
+                    <div class="col-md-2 text-center">
+                        <h5>Follow us</h5>
+                        <div class="d-flex justify-content-center mb-2">
+                            <a href="#" class="btn btn-outline-secondary btn-sm rounded-circle mr-2"><i class="fab fa-facebook-f"></i></a>
+                            <a href="#" class="btn btn-outline-secondary btn-sm rounded-circle"><i class="fab fa-twitter"></i></a>
+                        </div>
+                    </div>
+
+                    <!-- Contact Information -->
+                    <div class="col-md-4 text-center">
+                        <h5>Contact</h5>                        
+                        Department of Water and Climate (HYDR)<br>
+                        Vrije Universiteit Brussel (VUB)<br>
+                        Pleinlaan 2, 1050 Brussels, Belgium
+                        <a href="mailto:contact@vub.be">contact@vub.be</a>
+                    </div>
+                </div>
+
+                <!-- Footer Bottom Text -->
+                <div class="text-center mt-3">
+                    <small>&copy; HYDR-2024</small>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Include Bootstrap JS and dependencies -->
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

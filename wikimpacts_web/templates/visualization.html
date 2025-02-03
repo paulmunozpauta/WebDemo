@@ -1,0 +1,141 @@
+{% extends "layout.html" %}
+
+{% block content %}   
+
+<!-- Visualization Tool Content -->
+<h2>Visualisation Tool</h2>
+<div class="form-group">
+    <label for="viz_type">Choose a visualisation type:</label>
+    <select id="viz_type" name="viz_type" class="form-control" onchange="updateSubTypeOptions(); checkSelections();">
+        <option value="">Choose one</option>
+        <option value="impacts" {% if request.args.get('viz_type') == 'impacts' %}selected{% endif %}>Impacts</option>
+        <option value="map" {% if request.args.get('viz_type') == 'map' %}selected{% endif %}>Map</option>
+        <option value="distributions" {% if request.args.get('viz_type') == 'distributions' %}selected{% endif %}>Distribution</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="sub_type">And a sub-type:</label>
+    <select id="sub_type" name="sub_type" class="form-control" onchange="checkSelections()">
+        <option value="">Choose one</option>
+    </select>
+</div>
+
+<!-- Visualization Button - Disabled by default -->
+<a class="btn btn-primary disabled" id="visualizeButton" role="button" aria-disabled="true">Show Visualization</a>
+
+<!-- Conditional Visualization Title and Image Section -->
+{% if image_path and request.args.get('viz_type') and request.args.get('sub_type') %}
+<div class="mt-4">
+    <h3 id="visualizationTitle">{{ request.args.get('sub_type').replace('_', ' ').capitalize() }}</h3>
+    <img src="{{ url_for('static', filename=image_path) }}" class="img-fluid" alt="Event Visualization">
+</div>
+{% endif %}
+
+<script>
+    const vizTypeSelect = document.getElementById('viz_type');
+    const subTypeSelect = document.getElementById('sub_type');
+    const visualizeButton = document.getElementById('visualizeButton');
+    const visualizationTitle = document.getElementById('visualizationTitle');
+
+    function updateSubTypeOptions() {
+        const vizTypeValue = vizTypeSelect.value;
+        subTypeSelect.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Choose one';
+        subTypeSelect.appendChild(defaultOption);
+
+            
+        if (vizTypeValue === 'impacts') {
+           
+            const impactOptions = [
+                { value: 'Total_Deaths_Max', label: 'Total Deaths' },
+                { value: 'Total_Injuries_Max', label: 'Total Injuries' },
+                { value: 'Total_Affected_Max', label: 'Total Affected' },
+                { value: 'Total_Displaced_Max', label: 'Total Displaced' },
+                { value: 'Total_Homeless_Max', label: 'Total Homeless' },
+                { value: 'Total_Buildings_Damaged_Max', label: 'Buildings Damaged' },
+                { value: 'Total_Damage_Max', label: 'Total Damage' },
+                { value: 'Total_Insured_Damage_Max', label: 'Insured Damage' }
+            ];
+            impactOptions.forEach(function(option) {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.textContent = option.label;
+                if (option.value === "{{ request.args.get('sub_type', '') }}") {
+                    opt.selected = true;
+                }
+                subTypeSelect.appendChild(opt);
+            });            
+                
+            
+        } else if (vizTypeValue === 'map') {
+            const mapOptions = [
+                { value: 'event_location', label: 'Total Events Density Map' },
+                { value: 'event_floods', label: 'Floods Density Map' },
+                { value: 'event_wildfires', label: 'Wildfires Density Map' },
+                { value: 'impact_map', label: 'Impact Density Map' } // New Option
+            ];
+            mapOptions.forEach(function(option) {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.textContent = option.label;
+                if (option.value === "{{ request.args.get('sub_type', '') }}") {
+                    opt.selected = true;
+                }
+                subTypeSelect.appendChild(opt);
+            });
+        } else if (vizTypeValue === 'distributions') {
+            const timeseriesOptions = [
+                { value: 'event_type', label: 'Number of Events by Type' },
+                { value: 'event_type_pie', label: 'Events by Type (Pie)' },
+                { value: 'decadal_event_distribution', label: 'Decadal distribution of main events' },
+                { value: 'impact_bubble_chart', label: 'Impact Bubble Chart' },
+                { value: 'event_countries', label: 'Number of Events by Country' },
+                { value: 'event_continent', label: 'Number of Events by Continent' },
+                { value: 'event_trend', label: 'Event Trend Over Time' },
+                { value: 'impact_trends', label: 'Impact Trends Over Time' } // New Option
+            ];
+            timeseriesOptions.forEach(function(option) {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.textContent = option.label;
+                if (option.value === "{{ request.args.get('sub_type', '') }}") {
+                    opt.selected = true;
+                }
+                subTypeSelect.appendChild(opt);
+            });            
+                
+            
+            
+        }
+    }
+
+    function checkSelections() {
+        const vizType = vizTypeSelect.value;
+        const subType = subTypeSelect.value;
+
+        if (vizType && subType) {
+            visualizeButton.classList.remove("disabled");
+            visualizeButton.removeAttribute("aria-disabled");
+            visualizeButton.setAttribute("href", "{{ url_for('visualization') }}?viz_type=" + vizType + "&sub_type=" + subType);
+
+            const selectedText = subTypeSelect.options[subTypeSelect.selectedIndex].text;
+            visualizationTitle.textContent = selectedText;
+        } else {
+            visualizeButton.classList.add("disabled");
+            visualizeButton.setAttribute("aria-disabled", "true");
+            visualizeButton.removeAttribute("href");
+            visualizationTitle.textContent = "Selected Visualization";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        updateSubTypeOptions();
+        checkSelections();
+    });
+</script>
+
+{% endblock %}

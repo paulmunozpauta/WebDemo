@@ -1,0 +1,4 @@
+impact.db filter=lfs diff=lfs merge=lfs -text
+wikimpacts-web/impact.db filter=lfs diff=lfs merge=lfs -text
+*.db filter=lfs diff=lfs merge=lfs -text
+impact_slim.v1.db filter=lfs diff=lfs merge=lfs -text
