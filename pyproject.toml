@@ -2,7 +2,7 @@
 name = "wikimpacts-web"
 version = "0.1.0"
 description = ""
-authors = ["Paul Muñoz (paul.munoz@vub.be)"]
+authors = ["Paul Muñoz <paul.munoz@vub.be>"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
