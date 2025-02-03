@@ -3,7 +3,6 @@ name = "wikimpacts-web"
 version = "0.1.0"
 description = ""
 authors = ["Paul Muñoz (paul.munoz@vub.be)"]
-package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
