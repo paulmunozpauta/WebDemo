@@ -1,6 +1,8 @@
 import matplotlib
 matplotlib.use('Agg')  # Use the 'Agg' backend for non-GUI environments
-from flask import Flask, render_template, request, url_for, session, send_file, make_response, redirect, flash
+import tempfile
+from flask import Flask, render_template, request, url_for, session, send_file, make_response, redirect, flash, after_this_request
+import uuid
 import matplotlib.pyplot as plt
 import pandas as pd
 import sqlite3
@@ -19,6 +21,37 @@ from flask_sqlalchemy import SQLAlchemy
 from itertools import chain
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
+
+def serve_plot():
+    """
+    Saves the current matplotlib plot to a temporary file and serves it as a response.
+    """
+    try:
+        # Save plot to a temporary file
+        buf = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        plt.savefig(buf.name, format='png', dpi=300)
+        plt.close()
+        buf.seek(0)
+
+        # Serve the file and ensure cleanup after response
+        @after_this_request
+        def cleanup(response):
+            try:
+                os.unlink(buf.name)  # Delete the temporary file
+            except Exception as e:
+                logging.error(f"Error deleting temporary plot file: {e}")
+            return response
+
+        return send_file(
+            buf.name,
+            mimetype='image/png',
+            as_attachment=False,
+            download_name="plot.png"  # Correct usage for Flask >= 2.0
+        )
+    except Exception as e:
+        logging.error(f"Error serving plot: {e}")
+        return "Error serving the plot.", 500
+
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # Secure secret key
@@ -214,80 +247,208 @@ class TotalSummary(db.Model):
 
 
 
-
-
 @app.route('/')
 def home():
     return render_template('index.html')
 
 
-
+# Temporary storage for search results (resets when server restarts)
+temp_search_results = {}
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
-    # Retrieve unique countries by splitting lists stored in the database
+    # Fetch distinct countries
     countries_query = db.session.query(TotalSummary.Administrative_Areas_Norm).distinct().all()
-    countries = set(chain.from_iterable(
-        eval(country[0]) if country[0].startswith('[') else [country[0]] for country in countries_query
-    ))
-    countries = sorted(countries)
+    countries = []
+    for country in countries_query:
+        if country[0]:
+            cleaned_country = country[0].replace("[", "").replace("]", "").replace("'", "").split(", ")
+            countries.extend(cleaned_country)
+    countries = sorted(set(countries))  # Remove duplicates and sort alphabetically
 
+    # Fetch distinct events
     events = db.session.query(TotalSummary.Main_Event).distinct().all()
     events = [event[0] for event in events]
 
+    # Default columns always included
+    default_columns = ["Main_Event", "Hazards", "Event_Names", "Administrative_Areas_Norm", "Start_Date_Year", "End_Date_Year"]
+
+    # Map impacts to their respective columns
+    impact_columns_map = {
+        'Total_Deaths': ['Total_Deaths_Min', 'Total_Deaths_Max', 'Total_Deaths_Approx'],
+        'Total_Injuries': ['Total_Injuries_Min', 'Total_Injuries_Max', 'Total_Injuries_Approx'],
+        'Total_Displacement': ['Total_Displaced_Min', 'Total_Displaced_Max', 'Total_Displaced_Approx'],
+        'Total_Homelessness': ['Total_Homeless_Min', 'Total_Homeless_Max', 'Total_Homeless_Approx'],
+        'Total_Insured_Damage': ['Total_Insured_Damage_Min', 'Total_Insured_Damage_Max', 'Total_Insured_Damage_Approx'],
+        'Total_Damage': ['Total_Damage_Min', 'Total_Damage_Max', 'Total_Damage_Approx'],
+        'Total_Buildings_Damage': ['Total_Buildings_Damaged_Min', 'Total_Buildings_Damaged_Max', 'Total_Buildings_Damaged_Approx']
+    }
+
+    # Combine all possible columns for "all" impacts
+    all_columns = default_columns[:]
+    for impact_cols in impact_columns_map.values():
+        all_columns.extend(impact_cols)
+
     if request.method == 'POST':
-        # Collect filter inputs
+        # Fetch selected impacts
+        selected_impacts = request.form.getlist('impact')  # Retrieve list of selected impacts
+        print("Selected Impacts:", selected_impacts)  # Debugging log
+
         country = request.form.get('country')
         event_type = request.form.get('event_type')
-        impact = request.form.get('impact')
-        impact_value = request.form.get('impact_value')
-        since_year = request.form.get('since_year')
+        since_year = request.form.get('since_year', None)
 
-        # Build query based on filters
+        # Initialize query
         query = TotalSummary.query
         if country:
             query = query.filter(TotalSummary.Administrative_Areas_Norm.contains(country))
         if event_type and event_type != 'all':
             query = query.filter(TotalSummary.Main_Event == event_type)
-        if impact and impact_value:
-            query = query.filter(getattr(TotalSummary, impact) >= float(impact_value))
+
+        # Handle Refine by Range filters
+        for impact in impact_columns_map.keys():
+            if f"{impact}_use_range" in request.form:  # Check if "Refine by range" is selected for this impact
+                min_value = request.form.get(f"{impact}_Min", None)
+                max_value = request.form.get(f"{impact}_Max", None)
+                print(f"Impact: {impact}, Min: {min_value}, Max: {max_value}")  # Debugging statement
+
+                if min_value:
+                    query = query.filter(getattr(TotalSummary, f"{impact}_Min") >= float(min_value))
+                if max_value:
+                    query = query.filter(getattr(TotalSummary, f"{impact}_Max") <= float(max_value))
+
         if since_year:
             query = query.filter(TotalSummary.Start_Date_Year >= int(since_year))
 
-        # Execute query and fetch results
-        results = query.all()
+        # Fetch results
+        results = query.order_by(TotalSummary.Start_Date_Year).all()
 
-        # Convert results to dictionary format for rendering
+        # Determine columns to display
+        if 'all' in selected_impacts:
+            dynamic_columns = all_columns  # Show all columns
+        else:
+            # Include only default columns and selected impact columns
+            dynamic_columns = default_columns[:]
+            for impact in selected_impacts:
+                # Get the associated columns for the selected impact
+                impact_columns = impact_columns_map.get(impact, [])
+                if impact_columns:
+                    # Extend dynamic_columns with the relevant impact columns, avoiding duplicates
+                    for column in impact_columns:
+                        if column not in dynamic_columns:
+                            dynamic_columns.append(column)
+        # Remove duplicates and ensure consistent column order
+        dynamic_columns = list(dict.fromkeys(dynamic_columns))
+
+        # Create results dictionary with formatted values
         results_dict = [
             {
-                'Event_Names': ', '.join(result.Event_Names) if isinstance(result.Event_Names, list) else result.Event_Names,
-                'Main_Event': result.Main_Event,
-                'Country': result.Administrative_Areas_Norm,
-                'Start_Date': f"{result.Start_Date_Year}-{result.Start_Date_Month}-{result.Start_Date_Day}",
-                'End_Date': f"{result.End_Date_Year}-{result.End_Date_Month}-{result.End_Date_Day}",
-                'Total_Deaths': result.Total_Deaths_Max if result.Total_Deaths_Max is not None else 'N/A',
-                'Total_Damage': result.Total_Damage_Max if result.Total_Damage_Max is not None else 'N/A'
+                col: ', '.join(getattr(result, col, [])) if isinstance(getattr(result, col, []), list)
+                else int(getattr(result, col)) if isinstance(getattr(result, col), (float, int)) and col not in ["Hazards", "Event_Names", "Administrative_Areas_Norm"]
+                else getattr(result, col, 'N/A').replace("[", "").replace("]", "").replace("'", "") if col in ["Hazards", "Event_Names", "Administrative_Areas_Norm"]
+                else getattr(result, col, 'N/A')
+                for col in dynamic_columns
             }
             for result in results
         ]
 
-        # Store results in the session for CSV download
-        session['search_results'] = results_dict
+        # Generate a unique search ID
+        search_id = str(uuid.uuid4())
+        temp_search_results[search_id] = results_dict  # Store search results
 
-        return render_template('search_results.html', results=results_dict)
+        return render_template(
+            'search_results.html',
+            results=results_dict,
+            columns=dynamic_columns,  # Pass dynamic columns to the template
+            search_id=search_id
+        )
 
     return render_template('search.html', countries=countries, events=events)
 
+@app.route('/search_by_location', methods=['GET', 'POST'])
+def search_by_location():
+    # Fetch distinct countries and events for dropdowns
+    countries_query = db.session.query(TotalSummary.Administrative_Areas_Norm).distinct().all()
+    countries = [country[0] for country in countries_query if country[0]]
+
+    events_query = db.session.query(TotalSummary.Main_Event).distinct().all()
+    events = [event[0] for event in events_query]
+
+    # If POST request, handle the form submission
+    if request.method == 'POST':
+        country = request.form.get('country')  # Get selected country
+        event_type = request.form.get('event_type')  # Get selected event type
+
+        # Build the query based on the filters
+        query = TotalSummary.query
+        if country:
+            query = query.filter(TotalSummary.Administrative_Areas_Norm.contains(country))
+        if event_type and event_type != 'all':
+            query = query.filter(TotalSummary.Main_Event == event_type)
+
+        # Fetch all results after applying filters and sort by Start_Date_Year
+        results = query.order_by(TotalSummary.Start_Date_Year).all()
+
+        # Fetch all column names dynamically from the model
+        columns = [column.name for column in TotalSummary.__table__.columns]
+        columns = [col for col in columns if col not in ["Event_ID", "Sources","Administrative_Areas_GID",	"Administrative_Areas_Type", "Administrative_Areas_GeoJson"]]  # Exclude unwanted columns
+        # Reorder columns to start with Main Event, Hazards, and Event Names
+        ordered_columns = ["Main_Event", "Hazards", "Event_Names"]
+        remaining_columns = [col for col in columns if col not in ordered_columns]
+        columns = ordered_columns + remaining_columns  # Reorder columns
 
 
+        # Create the results dictionary
+        results_dict = []
+        try:
+            for result in results:
+                row = {}
+                for col in columns:
+                    value = getattr(result, col, 'N/A')
+                    if isinstance(value, list):  # Handle list values
+                        row[col] = ', '.join(value)
+                    elif isinstance(value, (float, int)):  # Format numeric values as integers
+                        row[col] = int(value) if value is not None else 'N/A'
+                    elif isinstance(value, str):  # Remove brackets and single quotes
+                        row[col] = value.replace("[", "").replace("]", "").replace("'", "")
+                    else:  # Default case
+                        row[col] = value
+                results_dict.append(row)
+        except Exception as e:
+            print("Error processing results:", e)
+            raise e  # Re-raise the exception for debugging
+        # Generate a unique search ID
+        search_id = str(uuid.uuid4())
+        temp_search_results[search_id] = results_dict  # Store search results
 
 
+        # Render the results in the template
+        return render_template(
+            'search_results.html',
+            results=results_dict,
+            columns=columns,
+            search_id=search_id
+        )
 
-@app.route('/visualization')
+    # Render the initial search form
+    return render_template('search.html', countries=countries, events=events)
+
+@app.route('/visualization', methods=['GET', 'POST'])
 def visualization():
     viz_type = request.args.get('viz_type', 'distributions')
     sub_type = request.args.get('sub_type', 'event_type')
-    image_path = None  # Initialize image_path to avoid the "referenced before assignment" error
+    start_year = request.args.get('start_year', type=int)
+    end_year = request.args.get('end_year', type=int)
+
+    # Ensure valid inputs are provided
+    if not (viz_type and sub_type and start_year and end_year):
+        # Render the page without generating a plot
+        return render_template(
+            'visualization.html',
+            plot_available=False,
+            min_year=None,
+            max_year=None
+        )
 
     # Define the custom colors
     custom_colors = {
@@ -307,6 +468,17 @@ def visualization():
         df = pd.read_sql_query("SELECT * FROM Total_Summary", conn)
         conn.close()
 
+        # Convert year columns to numeric and filter out invalid values
+        df['Start_Date_Year'] = pd.to_numeric(df['Start_Date_Year'], errors='coerce')
+        df['End_Date_Year'] = pd.to_numeric(df['End_Date_Year'], errors='coerce')
+
+        # Set default min and max years
+        min_year = int(df['Start_Date_Year'].min())
+        max_year = int(df['End_Date_Year'].max())
+        # Filter data by start and end year, if provided
+        if start_year is not None and end_year is not None:
+            df = df[(df['Start_Date_Year'] >= start_year) & (df['Start_Date_Year'] <= end_year)]
+
         # Handle missing date components using pd.NaT
         def construct_start_date(row):
             if pd.isna(row['Start_Date_Year']):
@@ -320,22 +492,10 @@ def visualization():
             except ValueError:
                 return pd.NaT
 
-        def construct_end_date(row):
-            if pd.isna(row['End_Date_Year']):
-                return pd.NaT
-            end_month = row['End_Date_Month'] if not pd.isna(row['End_Date_Month']) else 1
-            end_day = row['End_Date_Day'] if not pd.isna(row['End_Date_Day']) else 1
-            try:
-                return pd.Timestamp(year=int(row['End_Date_Year']),
-                                    month=int(end_month),
-                                    day=int(end_day))
-            except ValueError:
-                return pd.NaT
-
-        # Construct Start_Date and End_Date
+        # Construct Start_Date
         df['Start_Date'] = df.apply(construct_start_date, axis=1)
-        df['End_Date'] = df.apply(construct_end_date, axis=1)
-        df['Start_Date'].fillna(df['End_Date'], inplace=True)
+
+
 
         # Handle country normalization
         df['Country_Norm'] = df['Administrative_Areas_Norm'].str.strip("[]").str.replace("'", "").str.split(", ")
@@ -349,11 +509,11 @@ def visualization():
                 # Countplot for event types
                 plt.figure(figsize=(10, 6))
                 sns.countplot(y='Main_Event', data=df, order=df['Main_Event'].value_counts().index)
-                plt.title('Number of historic events by type')
+                plt.title(f'Number of historic events by type ({start_year}-{end_year})')
                 plt.xlabel('Count')
                 plt.ylabel('Event Type')
-                image_path = 'event_type.svg'
-
+                # Serve the plot using the utility function
+                return serve_plot()
 
             elif sub_type == 'event_type_pie':
                 # Generate the pie chart
@@ -370,7 +530,8 @@ def visualization():
                 )
                 plt.axis('equal')
                 plt.title('Distribution of Events by Type')
-                image_path = 'event_type_pie_chart.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
             
             elif sub_type == 'decadal_event_distribution':
             
@@ -388,7 +549,8 @@ def visualization():
                 plt.ylabel('Number of events')
                 plt.xticks(rotation=45)
                 plt.legend()
-                image_path = 'decadal_event_distribution.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
 
             elif sub_type == 'impact_bubble_chart':
                 
@@ -463,7 +625,8 @@ def visualization():
     
                 plt.legend(title='Impact Size (Log Scale)', loc='lower center', bbox_to_anchor=(0.5, -0.35), ncol=5)
                 
-                image_path = 'impact_bubble_chart.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
             
             elif sub_type == 'event_countries':
                 # Pie chart for distribution of events by country
@@ -475,7 +638,8 @@ def visualization():
                 plt.pie(country_sizes, labels=country_labels, autopct='%1.1f%%', startangle=140, colors=sns.color_palette('husl', len(country_labels)))
                 plt.axis('equal')
                 plt.title('Distribution of Events by Country')
-                image_path = 'event_countries.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
 
             elif sub_type == 'event_continent':
                 # Pie chart for distribution of events by continent
@@ -497,7 +661,8 @@ def visualization():
                 plt.pie(continent_counts.values, labels=continent_counts.index, autopct='%1.1f%%', startangle=140, colors=sns.color_palette('husl', len(continent_counts)))
                 plt.axis('equal')
                 plt.title('Distribution of Events by Continent')
-                image_path = 'event_continent.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
 
             elif sub_type == 'event_trend':
                 # Cumulative event trend plot
@@ -520,11 +685,12 @@ def visualization():
                 plt.ylabel('Number of Events')
                 plt.xticks(rotation=45)
                 plt.legend(title='Event Type')
-                image_path = 'event_trend.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
 
         # Check for map visualization type
         elif viz_type == 'map':
-            naturalearth_path = 'wikimpacts_web/data/naturalearth/ne_110m_admin_0_countries.shp'
+            naturalearth_path = 'data/naturalearth/ne_110m_admin_0_countries.shp'
             world = gpd.read_file(naturalearth_path)
 
             if sub_type == 'event_location':
@@ -557,7 +723,8 @@ def visualization():
                 ax.set_ylabel('Latitude')
 
                 # Save the map as an image
-                image_path = 'event_location.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
 
             elif sub_type == 'event_floods':
                 
@@ -593,7 +760,8 @@ def visualization():
                 ax.set_ylabel('Latitude')
 
                 # Save the map as an image
-                image_path = 'event_floods.svg'                
+                # Serve the plot using the utility function
+                return serve_plot()
                 
 
             elif sub_type == 'event_wildfires':
@@ -629,7 +797,8 @@ def visualization():
                 ax.set_ylabel('Latitude')
 
                 # Save the map as an image
-                image_path = 'event_wildfires.svg'                
+                # Serve the plot using the utility function
+                return serve_plot()
         
                 
         elif viz_type == 'impacts':
@@ -696,28 +865,20 @@ def visualization():
                 if not os.path.exists(static_dir):
                     os.makedirs(static_dir)
         
-                image_path = f'impact_metric_{sub_type}.svg'
+                # Serve the plot using the utility function
+                return serve_plot()
                 
-               
+        return render_template(
+            'visualization.html',
+            plot_available=False,
+            error_message="Invalid options provided.",
+            min_year=min_year,
+            max_year=max_year
+        )              
 
-
-        # Check if static directory exists, and save the plot
-        static_dir = os.path.join(basedir, 'wikimpacts_web', 'static')
-        if not os.path.exists(static_dir):
-            os.makedirs(static_dir)
-
-        if image_path:
-            plt.tight_layout()
-            plt.savefig(os.path.join(static_dir, image_path), format='svg', dpi=600)
-            plt.close()
-            return render_template('visualization.html', image_path=image_path)
-        else:
-            return "Visualization not created. Please check the options."
-    
     except Exception as e:
         logging.error(f"Error during visualization: {e}")
         return str(e)
-
 
 
 @app.route('/about')
@@ -777,34 +938,32 @@ def send_email():
 
 @app.route('/download_csv')
 def download_csv():
-    # Get the search results from the session (now in JSON-serializable format)
-    results = session.get('search_results', [])
+    search_id = request.args.get('search_id')  # Get the search_id from the request
 
-    # Create a CSV in memory
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Event Name', 'Main Event', 'Country', 'Start Date', 'End Date', 'Total Deaths', 'Total Damage'])  # CSV header
+    #  Fetch results from temporary storage
+    results = temp_search_results.get(search_id, [])
 
-    for result in results:
-        writer.writerow([
-            result['Event_Name'],
-            result['Main_Event'],
-            result['Country'],
-            result['Start_Date'],
-            result['End_Date'],
-            result['Total_Deaths'],
-            result['Total_Damage']
-        ])
+    #  Check if results exist
+    if not results or len(results) == 0:
+        return "No search results available for download."
 
-    # Reset the pointer to the beginning of the stream
-    output.seek(0)
+    #  Convert to DataFrame
+    df = pd.DataFrame(results)
 
-    # Create a response object and set headers for download
-    response = make_response(output.getvalue())
-    response.headers['Content-Disposition'] = 'attachment; filename=search_results.csv'
-    response.headers['Content-type'] = 'text/csv'
+    #  Create a temporary file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
+    df.to_csv(temp_file.name, index=False)
 
-    return response
+    #  Ensure file is deleted after sending
+    @after_this_request
+    def cleanup(response):
+        try:
+            os.remove(temp_file.name)  # Delete file after response
+        except Exception as e:
+            print(f"Error deleting temp file: {e}")
+        return response
+
+    return send_file(temp_file.name, as_attachment=True, download_name="search_results.csv")
 
 
 if __name__ == '__main__':
