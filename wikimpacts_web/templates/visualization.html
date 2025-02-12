@@ -1,42 +1,80 @@
 {% extends "layout.html" %}
 
-{% block content %}   
+{% block content %}
 
-<!-- Visualization Tool Content -->
-<h2>Visualisation Tool</h2>
-<div class="form-group">
-    <label for="viz_type">Choose a visualisation type:</label>
-    <select id="viz_type" name="viz_type" class="form-control" onchange="updateSubTypeOptions(); checkSelections();">
-        <option value="">Choose one</option>
-        <option value="impacts" {% if request.args.get('viz_type') == 'impacts' %}selected{% endif %}>Impacts</option>
-        <option value="map" {% if request.args.get('viz_type') == 'map' %}selected{% endif %}>Map</option>
-        <option value="distributions" {% if request.args.get('viz_type') == 'distributions' %}selected{% endif %}>Distribution</option>
-    </select>
+
+
+<div class="container mt-5">
+    <h2>Visualization Tool</h2>
+    <form method="get" action="{{ url_for('visualization') }}" id="visualizationForm">
+        <!-- Visualization Type Selection -->
+
+        <div class="form-group">
+            <label for="viz_type">Choose a Visualization Type:</label>
+            <select id="viz_type" name="viz_type" class="form-control" onchange="updateSubTypeOptions(); validateInputs();">
+                <option value="">Choose one</option>
+                <option value="impacts" {% if request.args.get('viz_type') == 'impacts' %}selected{% endif %}>Impacts</option>
+                <option value="map" {% if request.args.get('viz_type') == 'map' %}selected{% endif %}>Map</option>
+                <option value="distributions" {% if request.args.get('viz_type') == 'distributions' %}selected{% endif %}>Distribution</option>
+            </select>
+        </div>
+
+        <!-- Sub-Type Selection -->
+        <div class="form-group">
+            <label for="sub_type">And a sub-Type:</label>
+            <select id="sub_type" name="sub_type" class="form-control" onchange="validateInputs();">
+                <option value="">Choose one</option>
+            </select>
+        </div>
+
+        <!-- Start Year Input -->
+        <div class="form-group">
+            <label for="start_year">Start year:</label>
+            <input type="number" id="start_year" name="start_year" class="form-control"
+                   value="{{ request.args.get('start_year', min_year) }}" 
+                   min="{{ min_year }}" max="{{ max_year }}" onchange="validateInputs();">
+        </div>
+
+        <!-- End Year Input -->
+        <div class="form-group">
+            <label for="end_year">End year:</label>
+            <input type="number" id="end_year" name="end_year" class="form-control"
+                   value="{{ request.args.get('end_year', max_year) }}" 
+                   min="{{ min_year }}" max="{{ max_year }}" onchange="validateInputs();">
+        </div>
+
+        <!-- Error Message Display -->
+        <p id="error-message" style="color: red; display: none;"></p>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary" id="visualizeButton">Generate Visualization</button>
+    </form>
+
+
+    {% if plot_available %}
+    <!-- Plot Section -->
+    <div class="mt-4 text-center">
+        <h3>Generated Visualization</h3>
+        <img src="data:image/png;base64,{{ image_data }}" class="img-fluid" alt="Visualization">
+    </div>
+    {% endif %}
+
+    
 </div>
-
-<div class="form-group">
-    <label for="sub_type">And a sub-type:</label>
-    <select id="sub_type" name="sub_type" class="form-control" onchange="checkSelections()">
-        <option value="">Choose one</option>
-    </select>
-</div>
-
-<!-- Visualization Button - Disabled by default -->
-<a class="btn btn-primary disabled" id="visualizeButton" role="button" aria-disabled="true">Show Visualization</a>
-
-<!-- Conditional Visualization Title and Image Section -->
-{% if image_path and request.args.get('viz_type') and request.args.get('sub_type') %}
-<div class="mt-4">
-    <h3 id="visualizationTitle">{{ request.args.get('sub_type').replace('_', ' ').capitalize() }}</h3>
-    <img src="{{ url_for('static', filename=image_path) }}" class="img-fluid" alt="Event Visualization">
-</div>
-{% endif %}
 
 <script>
+
     const vizTypeSelect = document.getElementById('viz_type');
     const subTypeSelect = document.getElementById('sub_type');
+    const startYearInput = document.getElementById('start_year');
+    const endYearInput = document.getElementById('end_year');
     const visualizeButton = document.getElementById('visualizeButton');
-    const visualizationTitle = document.getElementById('visualizationTitle');
+    const errorMessage = document.getElementById('error-message');
+
+    // Fetch min and max year dynamically from server-side variables
+    const minYear = parseInt(startYearInput.min, 10);
+    const maxYear = parseInt(endYearInput.max, 10);
+
 
     function updateSubTypeOptions() {
         const vizTypeValue = vizTypeSelect.value;
@@ -47,9 +85,7 @@
         defaultOption.textContent = 'Choose one';
         subTypeSelect.appendChild(defaultOption);
 
-            
         if (vizTypeValue === 'impacts') {
-           
             const impactOptions = [
                 { value: 'Total_Deaths_Max', label: 'Total Deaths' },
                 { value: 'Total_Injuries_Max', label: 'Total Injuries' },
@@ -60,7 +96,7 @@
                 { value: 'Total_Damage_Max', label: 'Total Damage' },
                 { value: 'Total_Insured_Damage_Max', label: 'Insured Damage' }
             ];
-            impactOptions.forEach(function(option) {
+            impactOptions.forEach(option => {
                 const opt = document.createElement('option');
                 opt.value = option.value;
                 opt.textContent = option.label;
@@ -68,17 +104,15 @@
                     opt.selected = true;
                 }
                 subTypeSelect.appendChild(opt);
-            });            
-                
-            
+            });
         } else if (vizTypeValue === 'map') {
             const mapOptions = [
                 { value: 'event_location', label: 'Total Events Density Map' },
                 { value: 'event_floods', label: 'Floods Density Map' },
                 { value: 'event_wildfires', label: 'Wildfires Density Map' },
-                { value: 'impact_map', label: 'Impact Density Map' } // New Option
+                { value: 'impact_map', label: 'Impact Density Map' }
             ];
-            mapOptions.forEach(function(option) {
+            mapOptions.forEach(option => {
                 const opt = document.createElement('option');
                 opt.value = option.value;
                 opt.textContent = option.label;
@@ -91,14 +125,14 @@
             const timeseriesOptions = [
                 { value: 'event_type', label: 'Number of Events by Type' },
                 { value: 'event_type_pie', label: 'Events by Type (Pie)' },
-                { value: 'decadal_event_distribution', label: 'Decadal distribution of main events' },
+                { value: 'decadal_event_distribution', label: 'Decadal Distribution of Main Events' },
                 { value: 'impact_bubble_chart', label: 'Impact Bubble Chart' },
                 { value: 'event_countries', label: 'Number of Events by Country' },
                 { value: 'event_continent', label: 'Number of Events by Continent' },
                 { value: 'event_trend', label: 'Event Trend Over Time' },
-                { value: 'impact_trends', label: 'Impact Trends Over Time' } // New Option
+                { value: 'impact_trends', label: 'Impact Trends Over Time' }
             ];
-            timeseriesOptions.forEach(function(option) {
+            timeseriesOptions.forEach(option => {
                 const opt = document.createElement('option');
                 opt.value = option.value;
                 opt.textContent = option.label;
@@ -106,35 +140,68 @@
                     opt.selected = true;
                 }
                 subTypeSelect.appendChild(opt);
-            });            
-                
-            
-            
+            });
         }
     }
+    function validateInputs() {
+    const startYear = parseInt(startYearInput.value, 10);
+    const endYear = parseInt(endYearInput.value, 10);
+    const vizType = vizTypeSelect.value;
+    const subType = subTypeSelect.value;
+    const minYear = 1034;
+    const maxYear = 2024;
 
-    function checkSelections() {
-        const vizType = vizTypeSelect.value;
-        const subType = subTypeSelect.value;
-
-        if (vizType && subType) {
-            visualizeButton.classList.remove("disabled");
-            visualizeButton.removeAttribute("aria-disabled");
-            visualizeButton.setAttribute("href", "{{ url_for('visualization') }}?viz_type=" + vizType + "&sub_type=" + subType);
-
-            const selectedText = subTypeSelect.options[subTypeSelect.selectedIndex].text;
-            visualizationTitle.textContent = selectedText;
-        } else {
-            visualizeButton.classList.add("disabled");
-            visualizeButton.setAttribute("aria-disabled", "true");
-            visualizeButton.removeAttribute("href");
-            visualizationTitle.textContent = "Selected Visualization";
-        }
+    // Reset error message and button state
+    errorMessage.style.display = 'none';
+    visualizeButton.disabled = false;
+    // Validate visualization type and subtype selection
+    if (!vizType) {
+        errorMessage.textContent = "Please select a visualization type.";
+        errorMessage.style.display = 'block';
+        visualizeButton.disabled = true;
+        return;
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
+    if (!subType) {
+        errorMessage.textContent = "Please select a visualization subtype.";
+        errorMessage.style.display = 'block';
+        visualizeButton.disabled = true;
+        return;
+    }
+    // Validate year ranges
+    if (isNaN(startYear) || isNaN(endYear)) {
+        errorMessage.textContent = `Please enter valid numeric values for both years.`;
+        errorMessage.style.display = 'block';
+        visualizeButton.disabled = true;
+        return;
+    }
+
+    if (startYear < minYear || startYear > maxYear) {
+        errorMessage.textContent = `Start year must be between ${minYear} and ${maxYear}.`;
+        errorMessage.style.display = 'block';
+        visualizeButton.disabled = true;
+        return;
+    }
+
+    if (endYear < minYear || endYear > maxYear) {
+        errorMessage.textContent = `End year must be between ${minYear} and ${maxYear}.`;
+        errorMessage.style.display = 'block';
+        visualizeButton.disabled = true;
+        return;
+    }
+
+    if (startYear > endYear) {
+        errorMessage.textContent = `Start year cannot be greater than the end year.`;
+        errorMessage.style.display = 'block';
+        visualizeButton.disabled = true;
+        return;
+    }
+}
+
+    // Ensure options and inputs are properly set on page load
+    document.addEventListener("DOMContentLoaded", () => {
         updateSubTypeOptions();
-        checkSelections();
+        validateInputs();
     });
 </script>
 
